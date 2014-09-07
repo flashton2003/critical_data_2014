@@ -195,11 +195,15 @@ def make_distance_matrix(res_dict):
 
 
 def print_matrix(fo, diff_matrix):
+    ig_list = [140953, 140734, 140915]
     outhandle = open(fo, 'w')
     outhandle.write('strain1'+"\t"+'strain2'+"\t"+'angle_difference'+"\n") 
     for strain1 in diff_matrix:
         for strain2 in diff_matrix[strain1]:
-            outhandle.write(strain1+"\t"+strain2+"\t"+str(diff_matrix[strain1][strain2])+"\n") 
+            if strain1 not in ig_list:
+                if strain2 not in ig_list:
+
+                    outhandle.write(strain1+"\t"+strain2+"\t"+str(diff_matrix[strain1][strain2])+"\n") 
 
 
 #def reshape_matrix(diff_matrix):
@@ -240,6 +244,11 @@ find_12h_average(res_dict)
 dm = make_distance_matrix(res_dict)
 fo = '/Users/flashton/Dropbox/PyCharm projects/mimic_analysis/data/distance_matrix.txt'
 print_matrix(fo, dm)
+
+for each in res_dict:
+    if each.startswith('140'):
+        print each, res_dict[each].in_hospital_death, res_dict[each].nimap_window
+
 #check_matrix(fo)
 
 #print dm
