@@ -7,6 +7,8 @@ from record_class import PatientRecord
 import numpy as np
 import matplotlib.pyplot as plt
 import pylab
+import math
+
 
 root_dir = '/Users/flashton/Dropbox/PyCharm projects/mimic_analysis/data/set_a'
 outcomes_file = '/Users/flashton/Dropbox/PyCharm projects/mimic_analysis/data/outcomes'
@@ -63,13 +65,14 @@ def draw_histo(res_dict):
 def get_blood_pressure_list(root_dir, res_dict):
 
     for file in os.listdir(root_dir):
-        with open('%s/%s' % (root_dir, file)) as fi:
-            pat_id = file.split('.')[0]
-            for l in fi.readlines():
-                res = re.search('NIMAP', l)
-                if res:
-                    res_dict[pat_id].nimap_array.append(float(l.strip().split(',')[2]))
-                    #print l.strip().split(',')[2]
+        if file.startswith('140'):
+            with open('%s/%s' % (root_dir, file)) as fi:
+                pat_id = file.split('.')[0]
+                for l in fi.readlines():
+                    res = re.search('NIMAP', l)
+                    if res:
+                        res_dict[pat_id].nimap_array.append(float(l.strip().split(',')[2]))
+                        #print l.strip().split(',')[2]
 
     return res_dict
     #print len(res_dict[pat_id].nimap_array)
@@ -123,8 +126,103 @@ def box_whisker(res_dict):
     pylab.savefig('/Users/flashton/Dropbox/PyCharm projects/mimic_analysis/results/median_bp_hist.png')
 
 
+def find_12h_average(res_dict):
+
+    for file in os.listdir(root_dir):
+        if file.startswith('140'):
+            with open('%s/%s' % (root_dir, file)) as fi:
+                ranges = {(0, 12):[], (13, 24):[], (25, 36):[], (37, 48):[]}
+                pat_id = file.split('.')[0]
+
+                for l in fi.readlines():
+                    res = re.search('NIMAP', l)
+                    if res:
 
 
+                        hour = int(l.split(',')[0].split(':')[0])
+                        nimap = float(l.strip().split(',')[2])
+
+                        for r in ranges:
+                            if hour in range(r[0], r[1]):
+                                ranges[r].append(nimap)
+
+                bp_window = []
+
+                for r in ranges:
+                    if len(ranges[r]) > 0:
+                        a = np.array(ranges[r])
+                        bp_window.append(int(round(np.median(a))))
+
+                if len(bp_window) == len(ranges):
+                    res_dict[pat_id].nimap_window = bp_window
+
+    return res_dict
+
+
+
+def dotproduct(v1, v2):
+  return sum((a*b) for a, b in zip(v1, v2))
+
+def length(v):
+  return math.sqrt(dotproduct(v, v))
+
+def angle(v1, v2):
+  return math.acos(dotproduct(v1, v2) / (length(v1) * length(v2)))
+
+
+
+def make_distance_matrix(res_dict):
+    diff_matrix = {}
+    for patient1 in res_dict:
+        if len(res_dict[patient1].nimap_window) == 4:
+            diff_matrix[patient1] = {}
+            for patient2 in res_dict:
+                
+                if len(res_dict[patient2].nimap_window) == 4:
+                    if patient1 != patient2:
+
+                        if patient2 in diff_matrix and patient1 not in diff_matrix[patient2]:
+                            #print patient1, res_dict[patient1].nimap_window
+                            #print patient2, res_dict[patient2].nimap_window
+                            #print angle(res_dict[patient1].nimap_window, res_dict[patient2].nimap_window)
+                            diff_matrix[patient1][patient2] = angle(res_dict[patient1].nimap_window, res_dict[patient2].nimap_window)
+
+                    elif patient1 == patient2:
+                        diff_matrix[patient1][patient2] = 0                        
+
+
+    return diff_matrix
+
+
+def print_matrix(fo, diff_matrix):
+    outhandle = open(fo, 'w')
+    outhandle.write('strain1'+"\t"+'strain2'+"\t"+'angle_difference'+"\n") 
+    for strain1 in diff_matrix:
+        for strain2 in diff_matrix[strain1]:
+            outhandle.write(strain1+"\t"+strain2+"\t"+str(diff_matrix[strain1][strain2])+"\n") 
+
+
+#def reshape_matrix(diff_matrix):
+
+
+def check_matrix(fo):
+    res_dict = {}
+    inhandle = open(fo)
+    
+    for line in inhandle.readlines():
+        split_line = line.strip().split('\t')
+        if split_line[0] in res_dict:
+            res_dict[split_line[0]] += 1
+        else:
+            res_dict[split_line[0]] = 1
+
+        if split_line[1] in res_dict:
+            res_dict[split_line[1]] += 1
+        else:
+            res_dict[split_line[1]] = 1
+
+    for each in res_dict:
+        print each, res_dict[each]
 
 
 
@@ -135,8 +233,17 @@ res_dict = read_outcomes(outcomes_file, PatientRecord)
 
 #draw_histo(res_dict)
 
-res_dict = get_blood_pressure_list(root_dir, res_dict)
+#res_dict = get_blood_pressure_list(root_dir, res_dict)
+#res_dict = get_bp_stats(res_dict)
 
-res_dict = get_bp_stats(res_dict)
+find_12h_average(res_dict)
+dm = make_distance_matrix(res_dict)
+fo = '/Users/flashton/Dropbox/PyCharm projects/mimic_analysis/data/distance_matrix.txt'
+print_matrix(fo, dm)
+#check_matrix(fo)
 
-box_whisker(res_dict)
+#print dm
+
+#box_whisker(res_dict)
+
+

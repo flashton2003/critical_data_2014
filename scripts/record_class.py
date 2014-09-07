@@ -8,5 +8,7 @@ class PatientRecord:
         self.saps = int
         self.sofa = int
         self.nimap_array = []
+        self.nimap_time = []
         self.nimap_median = float
         self.nimap_stdev = float
+        self.nimap_window = []
